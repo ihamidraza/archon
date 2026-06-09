@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Env / secrets
+.env
+.env.local
+
+# Planning doc (kept local, not versioned)
+PLAN.md
+
+# Local data / state
+backend/data/chroma/*
+!backend/data/chroma/.gitkeep
+*.sqlite
+*.sqlite3
+*.db
+
+# LangGraph checkpoints
+checkpoints.sqlite*
+
+# Node / Next.js
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
