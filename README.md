@@ -8,7 +8,7 @@ sub-agent** (Billing · Technical · Account · Sales). Specialists answer from 
 knowledge base**, every turn passes through **input/output guardrails**, and low-confidence
 or risky cases **escalate to a human**. All models run locally via **Ollama** — no paid APIs.
 
-> **Status:** Phase 2 (RAG pipeline) complete. See [`PLAN.md`](./PLAN.md) for the full roadmap.
+> **Status:** Phase 3 (stateful LangGraph agent) complete. See [`PLAN.md`](./PLAN.md) for the full roadmap.
 
 ## Stack (all free / open-source)
 
