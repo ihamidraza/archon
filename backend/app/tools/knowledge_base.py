@@ -7,9 +7,11 @@ to look something up, rather than us always front-loading retrieval. The agent c
 
 from __future__ import annotations
 
-from langchain_core.tools import tool
+from langchain_core.tools import BaseTool, StructuredTool, tool
 
 from backend.app.rag.retriever import format_docs, get_retriever
+
+_NO_RESULTS = "No relevant articles were found in the knowledge base."
 
 
 @tool
@@ -27,5 +29,36 @@ def search_knowledge_base(query: str) -> str:
     """
     docs = get_retriever().invoke(query)
     if not docs:
-        return "No relevant articles were found in the knowledge base."
+        return _NO_RESULTS
     return format_docs(docs)
+
+
+def make_kb_search_tool(category: str, label: str) -> BaseTool:
+    """Build a knowledge-base search tool scoped to a single ``category``.
+
+    Phase 4 gives each specialist its *own* search tool that only ever retrieves from
+    its domain (e.g. the billing specialist can't accidentally surface sales docs). The
+    retriever's ``category`` filter does the scoping; here we wrap it as a distinctly
+    named tool with a tailored description so the specialist model knows exactly what it
+    searches.
+
+    Args:
+        category: The KB category to filter on (``billing``/``technical``/…).
+        label: Human-friendly domain name used in the tool description.
+    """
+
+    def _search(query: str) -> str:
+        docs = get_retriever(category=category).invoke(query)
+        if not docs:
+            return _NO_RESULTS
+        return format_docs(docs)
+
+    return StructuredTool.from_function(
+        func=_search,
+        name=f"search_{category}_knowledge_base",
+        description=(
+            f"Search the Nimbus {label} help articles for policies, how-tos, and "
+            "details in this domain. Pass a focused natural-language query; returns "
+            "documentation excerpts tagged with their source filename."
+        ),
+    )
