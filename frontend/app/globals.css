@@ -5,6 +5,9 @@
 :root {
   color-scheme: light;
 }
+html.dark {
+  color-scheme: dark;
+}
 
 html,
 body {
@@ -21,6 +24,14 @@ body {
   background-attachment: fixed;
 }
 
+html.dark body {
+  @apply text-slate-100;
+  background:
+    radial-gradient(1100px 520px at 50% -8%, rgba(99, 102, 241, 0.2), transparent 60%),
+    radial-gradient(900px 600px at 100% 0%, rgba(139, 92, 246, 0.14), transparent 55%),
+    linear-gradient(180deg, #0b1120 0%, #060912 100%);
+}
+
 /* Slim, modern scrollbar for the message list. */
 .scroll-area {
   scrollbar-width: thin;
@@ -35,4 +46,13 @@ body {
 }
 .scroll-area::-webkit-scrollbar-thumb:hover {
   background-color: rgb(148 163 184);
+}
+html.dark .scroll-area {
+  scrollbar-color: rgb(51 65 85) transparent;
+}
+html.dark .scroll-area::-webkit-scrollbar-thumb {
+  background-color: rgb(51 65 85);
+}
+html.dark .scroll-area::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(71 85 105);
 }

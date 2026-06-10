@@ -6,6 +6,7 @@ import type { ChatMessage, HealthStatus, SSEEvent } from "@/lib/types";
 import { HealthDot } from "./Badges";
 import { ArrowUpIcon, HeadsetIcon, PlusIcon, SparkIcon } from "./Icons";
 import MessageBubble from "./MessageBubble";
+import ThemeToggle from "./ThemeToggle";
 
 type Status = "idle" | "streaming" | "awaiting_human";
 
@@ -145,22 +146,23 @@ export default function Chat() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between gap-3 border-b border-slate-200/70 px-5 py-4">
+      <header className="flex items-center justify-between gap-3 border-b border-slate-200/70 px-5 py-4 dark:border-slate-800">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-glow">
             <SparkIcon className="h-[18px] w-[18px]" />
           </div>
           <div className="leading-tight">
-            <h1 className="text-[15px] font-semibold text-slate-900">Archon</h1>
-            <p className="text-xs text-slate-500">Nimbus customer support</p>
+            <h1 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">Archon</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Nimbus customer support</p>
           </div>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <HealthDot health={health} />
+          <ThemeToggle />
           <button
             type="button"
             onClick={newChat}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             <PlusIcon className="h-3.5 w-3.5" />
             New
@@ -204,8 +206,8 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-glow">
         <SparkIcon className="h-7 w-7" />
       </div>
-      <h2 className="mt-5 text-xl font-semibold text-slate-900">How can I help?</h2>
-      <p className="mt-1.5 text-sm text-slate-500">
+      <h2 className="mt-5 text-xl font-semibold text-slate-900 dark:text-slate-100">How can I help?</h2>
+      <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
         Ask about billing, technical issues, your account, or our plans.
       </p>
       <div className="mt-7 grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -214,12 +216,12 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
             key={s.title}
             type="button"
             onClick={() => onPick(s.text)}
-            className="group rounded-2xl border border-slate-200/80 bg-white/80 p-3.5 text-left transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-soft"
+            className="group rounded-2xl border border-slate-200/80 bg-white/80 p-3.5 text-left transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-soft dark:border-slate-700/80 dark:bg-slate-800/60 dark:hover:border-brand-500"
           >
-            <div className="text-[13px] font-semibold text-slate-800 group-hover:text-brand-700">
+            <div className="text-[13px] font-semibold text-slate-800 group-hover:text-brand-700 dark:text-slate-200 dark:group-hover:text-brand-300">
               {s.title}
             </div>
-            <div className="mt-0.5 text-xs text-slate-500">{s.text}</div>
+            <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{s.text}</div>
           </button>
         ))}
       </div>
@@ -247,14 +249,14 @@ function Composer({
 
   return (
     <div className="px-4 pb-4 pt-2 sm:px-6">
-      <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-soft transition focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-100">
+      <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-soft transition focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:focus-within:border-brand-500 dark:focus-within:ring-brand-500/20">
         <textarea
           rows={1}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Message Archon…"
-          className="max-h-44 flex-1 resize-none bg-transparent px-2.5 py-2 text-[15px] text-slate-800 outline-none placeholder:text-slate-400"
+          className="max-h-44 flex-1 resize-none bg-transparent px-2.5 py-2 text-[15px] text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
         />
         <button
           type="button"
@@ -270,7 +272,7 @@ function Composer({
           )}
         </button>
       </div>
-      <p className="mt-2 text-center text-[11px] text-slate-400">
+      <p className="mt-2 text-center text-[11px] text-slate-400 dark:text-slate-500">
         Archon can make mistakes. Answers are grounded in Nimbus docs.
       </p>
     </div>
@@ -290,12 +292,12 @@ function HumanPanel({
 }) {
   return (
     <div className="px-4 pb-4 pt-2 sm:px-6">
-      <div className="rounded-2xl border border-orange-200 bg-orange-50/80 p-3">
-        <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-orange-700">
+      <div className="rounded-2xl border border-orange-200 bg-orange-50/80 p-3 dark:border-orange-500/30 dark:bg-orange-500/10">
+        <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-orange-700 dark:text-orange-300">
           <HeadsetIcon className="h-3.5 w-3.5" />
           Escalated to a human agent{reason ? ` · ${reason}` : ""}
         </p>
-        <div className="flex items-end gap-2 rounded-xl border border-orange-200 bg-white p-2 focus-within:ring-4 focus-within:ring-orange-100">
+        <div className="flex items-end gap-2 rounded-xl border border-orange-200 bg-white p-2 focus-within:ring-4 focus-within:ring-orange-100 dark:border-orange-500/30 dark:bg-slate-800 dark:focus-within:ring-orange-500/20">
           <textarea
             rows={1}
             value={value}
@@ -307,7 +309,7 @@ function HumanPanel({
               }
             }}
             placeholder="Reply as the human agent…"
-            className="max-h-40 flex-1 resize-none bg-transparent px-2.5 py-1.5 text-[15px] text-slate-800 outline-none placeholder:text-slate-400"
+            className="max-h-40 flex-1 resize-none bg-transparent px-2.5 py-1.5 text-[15px] text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
           />
           <button
             type="button"

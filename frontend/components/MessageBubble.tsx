@@ -46,8 +46,8 @@ export default function MessageBubble({
   const bubbleClass = isUser
     ? "bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-glow rounded-br-md"
     : isHuman
-      ? "bg-amber-50 text-slate-800 ring-1 ring-amber-200/80 rounded-bl-md"
-      : "bg-white text-slate-800 ring-1 ring-slate-200/80 shadow-soft rounded-bl-md";
+      ? "bg-amber-50 text-slate-800 ring-1 ring-amber-200/80 rounded-bl-md dark:bg-amber-500/10 dark:text-amber-50 dark:ring-amber-500/30"
+      : "bg-white text-slate-800 ring-1 ring-slate-200/80 shadow-soft rounded-bl-md dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700";
 
   return (
     <div className={`flex animate-fade-in-up gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
@@ -55,7 +55,9 @@ export default function MessageBubble({
 
       <div className={`flex min-w-0 max-w-[82%] flex-col gap-1.5 ${isUser ? "items-end" : "items-start"}`}>
         {isHuman && (
-          <span className="ml-1 text-[11px] font-semibold text-orange-600">Human agent</span>
+          <span className="ml-1 text-[11px] font-semibold text-orange-600 dark:text-orange-400">
+            Human agent
+          </span>
         )}
 
         <div
@@ -63,12 +65,14 @@ export default function MessageBubble({
         >
           {message.pending && !message.content ? (
             message.escalated ? (
-              <span className="text-slate-500">Connecting you to a human agent…</span>
+              <span className="text-slate-500 dark:text-slate-400">
+                Connecting you to a human agent…
+              </span>
             ) : (
               <TypingDots />
             )
           ) : (
-            <span className={message.errored ? "text-rose-600" : undefined}>
+            <span className={message.errored ? "text-rose-600 dark:text-rose-400" : undefined}>
               {message.content}
               {message.pending && <span className="ml-0.5 animate-blink">▋</span>}
             </span>
@@ -122,7 +126,9 @@ function FeedbackButton({
       onClick={onClick}
       disabled={disabled}
       className={`rounded-md p-1 transition ${
-        active ? activeColor : `text-slate-400 ${hoverColor} disabled:hover:text-slate-300`
+        active
+          ? activeColor
+          : `text-slate-400 dark:text-slate-500 ${hoverColor} disabled:hover:text-slate-300`
       }`}
     >
       {tone === "up" ? <ThumbUpIcon className="h-3.5 w-3.5" /> : <ThumbDownIcon className="h-3.5 w-3.5" />}
