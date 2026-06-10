@@ -8,7 +8,7 @@ sub-agent** (Billing · Technical · Account · Sales). Specialists answer from 
 knowledge base**, every turn passes through **input/output guardrails**, and low-confidence
 or risky cases **escalate to a human**. All models run locally via **Ollama** — no paid APIs.
 
-> **Status:** Phase 7 (evaluation: datasets + evaluators) complete. See [`PLAN.md`](./PLAN.md) for the full roadmap.
+> **Status:** Phase 8 (FastAPI streaming backend) complete. See [`PLAN.md`](./PLAN.md) for the full roadmap.
 
 ## Stack (all free / open-source)
 
@@ -43,6 +43,20 @@ make env-check
 ```
 
 Run `make help` to see all tasks (`ingest`, `chat`, `run`, `test`, `eval`, `lint`, `fmt`).
+
+### HTTP API
+
+```bash
+make run    # FastAPI on http://localhost:8000  (interactive docs at /docs)
+
+# stream an answer over Server-Sent Events
+curl -N -X POST localhost:8000/chat \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"What is your refund policy for monthly plans?"}'
+```
+
+Endpoints: `POST /chat` & `POST /resume` (SSE streaming + human-in-the-loop), `GET /health`,
+`POST /feedback`. See [`docs/08-backend-api.md`](./docs/08-backend-api.md).
 
 ## Layout
 

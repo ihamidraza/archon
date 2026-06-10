@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     )
     max_output_retries: int = Field(default=1, alias="ARCHON_MAX_OUTPUT_RETRIES")
 
+    # --- API (Phase 8) ---
+    api_cors_origins: str = Field(
+        default="http://localhost:3000,http://127.0.0.1:3000",
+        alias="ARCHON_API_CORS_ORIGINS",
+    )
+    api_rate_limit: str = Field(default="30/minute", alias="ARCHON_API_RATE_LIMIT")
+    api_max_message_chars: int = Field(default=4000, alias="ARCHON_API_MAX_MESSAGE_CHARS")
+
     # --- LangSmith ---
     langchain_tracing_v2: bool = Field(default=False, alias="LANGCHAIN_TRACING_V2")
     langchain_project: str = Field(default="archon", alias="LANGCHAIN_PROJECT")
@@ -77,6 +85,11 @@ class Settings(BaseSettings):
     @property
     def checkpoint_path(self) -> Path:
         return self._abs(self.checkpoint_db)
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """CORS allow-list parsed from the comma-separated setting."""
+        return [o.strip() for o in self.api_cors_origins.split(",") if o.strip()]
 
     @staticmethod
     def _abs(value: str) -> Path:

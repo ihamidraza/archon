@@ -10,8 +10,12 @@ where it left off.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from pathlib import Path
 
 from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from backend.app.core.settings import settings
 
@@ -32,3 +36,26 @@ def get_checkpointer(db_path: str | None = None) -> SqliteSaver:
     saver = SqliteSaver(conn)
     saver.setup()  # idempotent: creates checkpoint tables on first use
     return saver
+
+
+@asynccontextmanager
+async def get_async_checkpointer(db_path: str | None = None) -> AsyncIterator[AsyncSqliteSaver]:
+    """Async checkpointer for the FastAPI service (Phase 8).
+
+    The API runs on an event loop, so it needs the ``aiosqlite``-backed
+    :class:`AsyncSqliteSaver` rather than the blocking sync saver. Used as an async context
+    manager so the connection is opened for the app's lifetime and closed on shutdown::
+
+        async with get_async_checkpointer() as saver:
+            graph = build_support_graph(checkpointer=saver)
+
+    Args:
+        db_path: SQLite path, or ``":memory:"`` for an ephemeral store (tests). Defaults to
+            ``settings.checkpoint_path``.
+    """
+    path = db_path or str(settings.checkpoint_path)
+    if path != ":memory:":
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+    async with AsyncSqliteSaver.from_conn_string(path) as saver:
+        await saver.setup()
+        yield saver
