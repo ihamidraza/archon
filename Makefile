@@ -2,7 +2,7 @@
 # All commands run inside the uv-managed Python 3.12 environment.
 
 .DEFAULT_GOAL := help
-.PHONY: help setup env-check ingest chat run test eval lint fmt clean
+.PHONY: help setup env-check ingest chat run test eval lint fmt clean ui-install ui ui-build
 
 PY := uv run
 
@@ -26,6 +26,15 @@ chat: ## Run the terminal chat loop against the agent graph
 
 run: ## Start the FastAPI backend (http://localhost:8000)
 	$(PY) uvicorn backend.app.main:app --reload --port 8000
+
+ui-install: ## Install the Next.js frontend dependencies
+	cd frontend && npm install
+
+ui: ## Start the Next.js dev server (http://localhost:3000)
+	cd frontend && npm run dev
+
+ui-build: ## Production build of the frontend (type-check + lint)
+	cd frontend && npm run build
 
 test: ## Run the pytest suite
 	$(PY) pytest -q

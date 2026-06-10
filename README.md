@@ -8,7 +8,7 @@ sub-agent** (Billing · Technical · Account · Sales). Specialists answer from 
 knowledge base**, every turn passes through **input/output guardrails**, and low-confidence
 or risky cases **escalate to a human**. All models run locally via **Ollama** — no paid APIs.
 
-> **Status:** Phase 8 (FastAPI streaming backend) complete. See [`PLAN.md`](./PLAN.md) for the full roadmap.
+> **Status:** Phase 9 (Next.js chat UI) complete. See [`PLAN.md`](./PLAN.md) for the full roadmap.
 
 ## Stack (all free / open-source)
 
@@ -57,6 +57,17 @@ curl -N -X POST localhost:8000/chat \
 
 Endpoints: `POST /chat` & `POST /resume` (SSE streaming + human-in-the-loop), `GET /health`,
 `POST /feedback`. See [`docs/08-backend-api.md`](./docs/08-backend-api.md).
+
+### Web UI
+
+```bash
+make ui-install   # one-time: install frontend deps
+make ui           # Next.js chat UI on http://localhost:3000  (needs the backend running)
+```
+
+A polished Next.js chat UI consuming the SSE protocol — streaming answers, routing/guardrail
+badges, thumbs feedback, and the human-in-the-loop handoff. See
+[`frontend/`](./frontend) and [`docs/09-frontend.md`](./docs/09-frontend.md).
 
 ## Layout
 
