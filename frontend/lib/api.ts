@@ -46,7 +46,10 @@ export async function streamSSE(
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+    // Normalize CRLF → LF: per the SSE spec, frames may be separated by \r\n\r\n (which
+    // sse-starlette uses) or \n\n. A lone trailing \r (a CRLF split across chunks) is left
+    // for the next iteration to complete, so we never split a frame early.
+    buffer = (buffer + decoder.decode(value, { stream: true })).replace(/\r\n/g, "\n");
 
     let sep: number;
     while ((sep = buffer.indexOf("\n\n")) !== -1) {
