@@ -29,6 +29,7 @@ from backend.app.core.observability import (
 from backend.app.core.settings import settings
 from backend.app.graph.build import build_support_graph
 from backend.app.graph.memory import get_checkpointer
+from backend.app.llm.text import strip_reasoning, visible_so_far
 
 # Specialist subgraphs stream answer tokens from an inner node named "agent". The
 # refuse/escalate nodes emit pre-built messages (no LLM call), printed via the fallback.
@@ -36,16 +37,22 @@ _ANSWER_NODES = {"agent"}
 
 
 def _stream_answer(graph, payload, config) -> tuple[bool, str | None]:
-    """Stream a run, printing answer tokens. Returns (printed_any, root_run_id)."""
+    """Stream a run, printing answer tokens (reasoning filtered). Returns (printed_any, run_id)."""
     streamed = False
+    accumulated = ""  # full raw text of the current answer, to filter <think> live
+    shown = 0  # how many visible chars we've already printed
     with collect_runs() as cb:
         for _ns, (chunk, meta) in graph.stream(
             payload, config=config, stream_mode="messages", subgraphs=True
         ):
             if meta.get("langgraph_node") in _ANSWER_NODES and isinstance(chunk, AIMessageChunk):
                 if chunk.content:
-                    print(chunk.content, end="", flush=True)
-                    streamed = True
+                    accumulated += chunk.content
+                    visible = visible_so_far(accumulated)
+                    if len(visible) > shown:
+                        print(visible[shown:], end="", flush=True)
+                        shown = len(visible)
+                        streamed = True
     run_id = str(cb.traced_runs[0].id) if cb.traced_runs else None
     return streamed, run_id
 
@@ -110,7 +117,7 @@ def main() -> None:
 
         values = snapshot.values
         if not streamed and values.get("messages"):
-            print(values["messages"][-1].content, end="", flush=True)
+            print(strip_reasoning(str(values["messages"][-1].content)), end="", flush=True)
 
         _print_footer(values)
         print()

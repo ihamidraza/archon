@@ -28,6 +28,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from backend.app.llm.factory import get_agent_model
+from backend.app.llm.text import strip_reasoning
 
 
 def build_react_agent(
@@ -54,7 +55,14 @@ def build_react_agent(
         # The system prompt is prepended fresh each call rather than stored in state,
         # so it never duplicates as the message history grows.
         messages = [SystemMessage(content=system_prompt), *state["messages"]]
-        return {"messages": [llm.invoke(messages)]}
+        result = llm.invoke(messages)
+        # Defensively strip any leaked <think>…</think> reasoning from the answer text
+        # (some Ollama models ignore reasoning=False). Tool calls are preserved.
+        if isinstance(result.content, str):
+            cleaned = strip_reasoning(result.content)
+            if cleaned != result.content:
+                result = result.model_copy(update={"content": cleaned})
+        return {"messages": [result]}
 
     builder = StateGraph(MessagesState)
     builder.add_node("agent", agent_node)
