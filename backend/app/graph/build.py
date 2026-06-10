@@ -1,74 +1,96 @@
-"""Assemble the supervised support graph: supervisor → specialist → end.
+"""Assemble the full guarded support graph.
 
-This wires the Phase 4 system together:
+Phase 4 was ``supervisor → specialist → END``. Phase 5 wraps that core in guardrails and a
+human-in-the-loop:
 
-    START → supervisor → (conditional) → one specialist subgraph → END
-                              └─ low confidence ─→ escalate → END
+    START
+      → input_guard ─(blocked)→ refuse ─────────────────────────────→ END
+            │(ok)
+            ▼
+        supervisor ─(low confidence)──────────────→ escalate (HITL) → END
+            │
+            ▼ (chosen specialist)
+        billing │ technical │ account │ sales   (ReAct subgraphs)
+            │
+            ▼
+        output_guard ─(grounded)─────────────────────────────────────→ END
+            ├─(ungrounded, retries left)→ back to the specialist
+            └─(ungrounded, exhausted)───→ escalate (HITL) → END
 
-The supervisor classifies; a conditional edge fans out to one of the four specialist
-subgraphs (or the escalation stub). Each specialist is the Phase 3 ReAct loop nested as a
-subgraph — because the parent :class:`SupportState` extends ``MessagesState``, the shared
-``messages`` channel flows in and out of each subgraph automatically.
-
-Memory works exactly as in Phase 3: pass a checkpointer here (the parent), not to the
-specialists, and the whole multi-agent conversation is persisted per ``thread_id``.
+The specialist subgraphs are unchanged from Phase 4; everything new is a node bolted onto
+the edges. Memory still lives on the parent ``compile`` — and the checkpointer is now
+load-bearing, because the ``escalate`` node uses ``interrupt()`` to pause for a human.
 """
 
 from __future__ import annotations
 
-from langchain_core.messages import AIMessage
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from backend.app.graph.agents.specialists import SPECIALISTS, build_all_specialists
+from backend.app.graph.nodes.escalation import escalation_node
+from backend.app.graph.nodes.input_guard import (
+    input_guard_node,
+    refuse_node,
+    route_after_input_guard,
+)
+from backend.app.graph.nodes.output_guard import (
+    output_guard_node,
+    route_after_output_guard,
+)
 from backend.app.graph.state import SupportState
 from backend.app.graph.supervisor import route_from_supervisor, supervisor_node
-
-ESCALATION_MESSAGE = (
-    "Thanks for your patience. I want to make sure you get the right help, so I'm "
-    "connecting you with a human teammate who can take it from here. Could you share a "
-    "little more detail about what you need while I hand this off?"
-)
-
-
-def escalate_node(state: SupportState) -> dict:
-    """Human-handoff stub for low-confidence routes.
-
-    In Phase 4 this just returns a polite handoff message. Phase 5 replaces it with a
-    real human-in-the-loop ``interrupt`` that pauses the graph until a human responds.
-    """
-    return {"messages": [AIMessage(content=ESCALATION_MESSAGE)]}
 
 
 def build_support_graph(
     checkpointer: BaseCheckpointSaver | None = None,
 ) -> CompiledStateGraph:
-    """Compile the full supervisor + specialists graph.
+    """Compile the guarded supervisor + specialists + human-in-the-loop graph.
 
     Args:
-        checkpointer: Optional memory for the whole conversation, keyed by ``thread_id``.
-            Specialists are nested without their own checkpointer so this one owns state.
+        checkpointer: Conversation memory, keyed by ``thread_id``. Required for the
+            human-in-the-loop ``escalate`` node to pause and resume; pass an in-memory
+            saver in tests.
     """
     specialists = build_all_specialists()
 
     builder = StateGraph(SupportState)
+    builder.add_node("input_guard", input_guard_node)
+    builder.add_node("refuse", refuse_node)
     builder.add_node("supervisor", supervisor_node)
-    builder.add_node("escalate", escalate_node)
+    builder.add_node("output_guard", output_guard_node)
+    builder.add_node("escalate", escalation_node)
     for key, agent in specialists.items():
-        # A compiled subgraph is a valid node; it reads/writes the shared messages channel.
         builder.add_node(key, agent)
 
-    builder.add_edge(START, "supervisor")
-    # Fan out from the supervisor to exactly one specialist (or the escalation stub).
+    # Input guardrail first; refuse blocked input, otherwise classify.
+    builder.add_edge(START, "input_guard")
+    builder.add_conditional_edges(
+        "input_guard",
+        route_after_input_guard,
+        {"refuse": "refuse", "supervisor": "supervisor"},
+    )
+    builder.add_edge("refuse", END)
+
+    # Supervisor fans out to a specialist, or escalates on low confidence.
     builder.add_conditional_edges(
         "supervisor",
         route_from_supervisor,
         {**{key: key for key in SPECIALISTS}, "escalate": "escalate"},
     )
-    # Each terminal node ends the turn; the next user message re-enters at the supervisor.
+
+    # Every specialist's answer passes through the output guardrail.
     for key in SPECIALISTS:
-        builder.add_edge(key, END)
+        builder.add_edge(key, "output_guard")
+
+    # Output guardrail: end, retry the specialist, or escalate to a human.
+    builder.add_conditional_edges(
+        "output_guard",
+        route_after_output_guard,
+        {**{key: key for key in SPECIALISTS}, "escalate": "escalate", "__end__": END},
+    )
+
     builder.add_edge("escalate", END)
 
     return builder.compile(checkpointer=checkpointer, name="support_supervisor")

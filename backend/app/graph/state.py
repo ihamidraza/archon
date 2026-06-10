@@ -20,10 +20,25 @@ from langgraph.graph import MessagesState
 
 
 class SupportState(MessagesState):
-    """Conversation messages plus the supervisor's routing decision."""
+    """Conversation messages, the supervisor's routing decision, and guardrail signals."""
 
+    # --- Routing (Phase 4) ---
     # Which specialist the supervisor picked (billing/technical/account/sales) or
     # "escalate" when confidence is too low. Absent until the supervisor runs.
     intent: NotRequired[str]
     # The supervisor's confidence in that label, 0.0–1.0.
     confidence: NotRequired[float]
+
+    # --- Guardrails (Phase 5) ---
+    # Set by the input guardrail when a message is refused (e.g. prompt injection).
+    blocked: NotRequired[bool]
+    block_reason: NotRequired[str]
+    # Token→original map of high-risk PII redacted from the input, for a human handoff.
+    pii_map: NotRequired[dict[str, str]]
+    # How many times the output guardrail has bounced the answer back for a retry.
+    retry_count: NotRequired[int]
+    # The output guardrail's verdict for the current step: "ok" | "retry" | "escalate".
+    # Refreshed every time the node runs, so the routing edge reads a current value.
+    guard_decision: NotRequired[str]
+    # Why the conversation was escalated to a human (for the escalation node + traces).
+    escalation_reason: NotRequired[str]
