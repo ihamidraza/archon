@@ -4,15 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { chat, fetchHealth, resume, sendFeedback } from "@/lib/api";
 import type { ChatMessage, HealthStatus, SSEEvent } from "@/lib/types";
 import { HealthDot } from "./Badges";
+import { ArrowUpIcon, HeadsetIcon, PlusIcon, SparkIcon } from "./Icons";
 import MessageBubble from "./MessageBubble";
 
 type Status = "idle" | "streaming" | "awaiting_human";
 
 const SUGGESTIONS = [
-  "What is your refund policy for monthly plans?",
-  "I get a 500 error when exporting a large dataset.",
-  "How do I enable SAML SSO for my workspace?",
-  "How much does the Pro plan cost per month?",
+  { title: "Refund policy", text: "What is your refund policy for monthly plans?" },
+  { title: "Export error", text: "I get a 500 error when exporting a large dataset." },
+  { title: "Enable SSO", text: "How do I enable SAML SSO for my workspace?" },
+  { title: "Pricing", text: "How much does the Pro plan cost per month?" },
 ];
 
 let counter = 0;
@@ -100,7 +101,6 @@ export default function Chat() {
       await chat(trimmed, threadId, handler(replyId));
     } finally {
       setStatus((s) => (s === "streaming" ? "idle" : s));
-      // Safety net: if the stream ended without a terminal event, stop the cursor.
       setMessages((prev) =>
         prev.map((m) =>
           m.id === replyId && m.pending && !m.escalated ? { ...m, pending: false } : m,
@@ -145,24 +145,30 @@ export default function Chat() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white/80 px-5 py-3 backdrop-blur">
-        <div>
-          <h1 className="text-lg font-semibold text-slate-900">Archon</h1>
-          <p className="text-xs text-slate-500">Nimbus customer support</p>
+      <header className="flex items-center justify-between gap-3 border-b border-slate-200/70 px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-glow">
+            <SparkIcon className="h-[18px] w-[18px]" />
+          </div>
+          <div className="leading-tight">
+            <h1 className="text-[15px] font-semibold text-slate-900">Archon</h1>
+            <p className="text-xs text-slate-500">Nimbus customer support</p>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2.5">
           <HealthDot health={health} />
           <button
             type="button"
             onClick={newChat}
-            className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
           >
-            New chat
+            <PlusIcon className="h-3.5 w-3.5" />
+            New
           </button>
         </div>
       </header>
 
-      <div className="scroll-area flex-1 space-y-4 overflow-y-auto px-5 py-6">
+      <div className="scroll-area flex-1 space-y-5 overflow-y-auto px-4 py-6 sm:px-6">
         {messages.length === 0 ? (
           <EmptyState onPick={send} />
         ) : (
@@ -185,7 +191,7 @@ export default function Chat() {
           value={input}
           onChange={setInput}
           onSend={() => send(input)}
-          disabled={status === "streaming"}
+          busy={status === "streaming"}
         />
       )}
     </div>
@@ -194,20 +200,26 @@ export default function Chat() {
 
 function EmptyState({ onPick }: { onPick: (text: string) => void }) {
   return (
-    <div className="mx-auto mt-10 max-w-md text-center">
-      <h2 className="text-base font-semibold text-slate-700">How can I help?</h2>
-      <p className="mt-1 text-sm text-slate-500">
+    <div className="mx-auto flex max-w-lg flex-col items-center pt-8 text-center sm:pt-14">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-glow">
+        <SparkIcon className="h-7 w-7" />
+      </div>
+      <h2 className="mt-5 text-xl font-semibold text-slate-900">How can I help?</h2>
+      <p className="mt-1.5 text-sm text-slate-500">
         Ask about billing, technical issues, your account, or our plans.
       </p>
-      <div className="mt-5 grid gap-2">
+      <div className="mt-7 grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2">
         {SUGGESTIONS.map((s) => (
           <button
-            key={s}
+            key={s.title}
             type="button"
-            onClick={() => onPick(s)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-600 shadow-sm transition hover:border-brand-500 hover:text-slate-900"
+            onClick={() => onPick(s.text)}
+            className="group rounded-2xl border border-slate-200/80 bg-white/80 p-3.5 text-left transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-soft"
           >
-            {s}
+            <div className="text-[13px] font-semibold text-slate-800 group-hover:text-brand-700">
+              {s.title}
+            </div>
+            <div className="mt-0.5 text-xs text-slate-500">{s.text}</div>
           </button>
         ))}
       </div>
@@ -219,12 +231,12 @@ function Composer({
   value,
   onChange,
   onSend,
-  disabled,
+  busy,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
-  disabled: boolean;
+  busy: boolean;
 }) {
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -234,25 +246,33 @@ function Composer({
   }
 
   return (
-    <div className="border-t border-slate-200 bg-white px-4 py-3">
-      <div className="flex items-end gap-2">
+    <div className="px-4 pb-4 pt-2 sm:px-6">
+      <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-soft transition focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-100">
         <textarea
           rows={1}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Message Archon…"
-          className="max-h-40 flex-1 resize-none rounded-xl border border-slate-200 px-3.5 py-2.5 text-[15px] text-slate-800 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+          className="max-h-44 flex-1 resize-none bg-transparent px-2.5 py-2 text-[15px] text-slate-800 outline-none placeholder:text-slate-400"
         />
         <button
           type="button"
           onClick={onSend}
-          disabled={disabled || !value.trim()}
-          className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={busy || !value.trim()}
+          aria-label="Send"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-glow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30 disabled:shadow-none"
         >
-          {disabled ? "…" : "Send"}
+          {busy ? (
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+          ) : (
+            <ArrowUpIcon className="h-[18px] w-[18px]" />
+          )}
         </button>
       </div>
+      <p className="mt-2 text-center text-[11px] text-slate-400">
+        Archon can make mistakes. Answers are grounded in Nimbus docs.
+      </p>
     </div>
   );
 }
@@ -269,32 +289,36 @@ function HumanPanel({
   onSend: () => void;
 }) {
   return (
-    <div className="border-t border-orange-200 bg-orange-50 px-4 py-3">
-      <p className="mb-2 text-xs font-medium text-orange-700">
-        Escalated to a human agent{reason ? ` (${reason})` : ""}. Reply as the agent:
-      </p>
-      <div className="flex items-end gap-2">
-        <textarea
-          rows={1}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              onSend();
-            }
-          }}
-          placeholder="Human agent reply…"
-          className="max-h-40 flex-1 resize-none rounded-xl border border-orange-300 bg-white px-3.5 py-2.5 text-[15px] text-slate-800 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-        />
-        <button
-          type="button"
-          onClick={onSend}
-          disabled={!value.trim()}
-          className="rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Send
-        </button>
+    <div className="px-4 pb-4 pt-2 sm:px-6">
+      <div className="rounded-2xl border border-orange-200 bg-orange-50/80 p-3">
+        <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-orange-700">
+          <HeadsetIcon className="h-3.5 w-3.5" />
+          Escalated to a human agent{reason ? ` · ${reason}` : ""}
+        </p>
+        <div className="flex items-end gap-2 rounded-xl border border-orange-200 bg-white p-2 focus-within:ring-4 focus-within:ring-orange-100">
+          <textarea
+            rows={1}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                onSend();
+              }
+            }}
+            placeholder="Reply as the human agent…"
+            className="max-h-40 flex-1 resize-none bg-transparent px-2.5 py-1.5 text-[15px] text-slate-800 outline-none placeholder:text-slate-400"
+          />
+          <button
+            type="button"
+            onClick={onSend}
+            disabled={!value.trim()}
+            aria-label="Send as human agent"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <ArrowUpIcon className="h-[18px] w-[18px]" />
+          </button>
+        </div>
       </div>
     </div>
   );
