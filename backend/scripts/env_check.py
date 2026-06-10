@@ -63,11 +63,15 @@ def main() -> int:
             print(f"{BAD} {role:<6} model MISSING: {want}  (pull with: ollama pull {want})")
             missing.append(want)
 
-    # 4. LangSmith key sanity (non-fatal)
-    import os
+    # 4. LangSmith tracing (non-fatal — the system runs fully without it)
+    from backend.app.core.observability import configure_tracing
 
-    if settings.langchain_tracing_v2 and not os.getenv("LANGCHAIN_API_KEY", "").startswith("ls"):
+    if configure_tracing():
+        print(f"{OK} LangSmith tracing enabled → project '{settings.langchain_project}'")
+    elif settings.langchain_tracing_v2:
         print(f"{WARN}LANGCHAIN_TRACING_V2=true but LANGCHAIN_API_KEY looks unset/placeholder")
+    else:
+        print(f"{WARN}LangSmith tracing off (optional; set LANGCHAIN_API_KEY to enable)")
 
     print("-" * 40)
     if missing:

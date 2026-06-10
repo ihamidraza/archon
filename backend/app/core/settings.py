@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     # --- LangSmith ---
     langchain_tracing_v2: bool = Field(default=False, alias="LANGCHAIN_TRACING_V2")
     langchain_project: str = Field(default="archon", alias="LANGCHAIN_PROJECT")
+    langchain_endpoint: str = Field(
+        default="https://api.smith.langchain.com", alias="LANGCHAIN_ENDPOINT"
+    )
+    langchain_api_key: str = Field(default="", alias="LANGCHAIN_API_KEY")
 
     # ---- Resolved absolute paths (computed) ----
     @property
