@@ -53,3 +53,7 @@ select = ["E", "F", "I", "UP", "B"]
 asyncio_mode = "auto"
 testpaths = ["backend/tests"]
 pythonpath = ["."]
+filterwarnings = [
+    # Starlette's TestClient warns about httpx internals; not actionable for us.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]

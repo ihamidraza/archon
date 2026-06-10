@@ -32,6 +32,11 @@ class Settings(BaseSettings):
 
     # --- Ollama ---
     ollama_base_url: str = Field(default="http://localhost:11434", alias="OLLAMA_BASE_URL")
+    # Per-request timeout (seconds) for model calls, so a stuck model can't hang a request.
+    request_timeout: float = Field(default=120.0, alias="ARCHON_REQUEST_TIMEOUT")
+
+    # --- Observability / ops ---
+    log_level: str = Field(default="INFO", alias="ARCHON_LOG_LEVEL")
 
     # --- Tiered models ---
     router_model: str = Field(default="llama3.2:3b", alias="ARCHON_ROUTER_MODEL")

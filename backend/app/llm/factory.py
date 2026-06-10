@@ -65,6 +65,10 @@ def get_chat_model(
         default_temp = settings.agent_temperature
         default_reasoning = False
 
+    # Bound every model call with a request timeout so a hung Ollama can't wedge a
+    # request indefinitely (callers surface this as an error and can retry/escalate).
+    overrides.setdefault("client_kwargs", {"timeout": settings.request_timeout})
+
     return ChatOllama(
         model=model_name,
         base_url=settings.ollama_base_url,

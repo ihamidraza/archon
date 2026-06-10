@@ -8,7 +8,26 @@ sub-agent** (Billing · Technical · Account · Sales). Specialists answer from 
 knowledge base**, every turn passes through **input/output guardrails**, and low-confidence
 or risky cases **escalate to a human**. All models run locally via **Ollama** — no paid APIs.
 
-> **Status:** Phase 9 (Next.js chat UI) complete. See [`PLAN.md`](./PLAN.md) for the full roadmap.
+> **Status:** Complete — all 10 build phases shipped (AI core → guardrails → observability →
+> evaluation → API → UI → hardening). Each phase has a standalone explainer in [`docs/`](./docs).
+
+## Architecture
+
+```
+                        ┌──────────────── one LangGraph StateGraph ────────────────┐
+  customer message ─▶   │  input guard ─▶ supervisor ─▶ specialist ─▶ output guard │ ─▶ streamed answer
+       (HTTP / SSE)     │   │  PII redact    │ classify    │ ReAct loop   │ grounded?│
+                        │   │  injection?    │ + route     │ RAG + tools  │          │
+                        │   ▼                ▼             │              ▼          │
+                        │ refuse        (low confidence)   │      ungrounded → retry │
+                        │                     └────────────┴──────▶ escalate ◀───────┘
+                        │                          human-in-the-loop (interrupt / resume)
+                        └──────────────────────────────────────────────────────────┘
+   every turn is traced to LangSmith · memory persists per thread via a SQLite checkpointer
+```
+
+Four specialists (Billing · Technical · Account · Sales), each a ReAct subgraph scoped to
+its slice of the knowledge base. See [`docs/`](./docs) for a phase-by-phase walkthrough.
 
 ## Stack (all free / open-source)
 
@@ -20,9 +39,9 @@ or risky cases **escalate to a human**. All models run locally via **Ollama** �
 | Observability | **LangSmith**                                             |
 | Vector store  | **Chroma** (local, persistent)                            |
 | Memory        | LangGraph **SqliteSaver** checkpointer                    |
-| PII guardrail | **Microsoft Presidio**                                    |
-| API           | **FastAPI** + SSE streaming                               |
-| UI            | **Next.js** chat (built last)                             |
+| PII guardrail | regex engine (+ optional **Microsoft Presidio**)          |
+| API           | **FastAPI** + SSE streaming + rate limiting               |
+| UI            | **Next.js 15** chat (Tailwind, SSE)                       |
 | Env / tasks   | **uv** (Python 3.12) + **Make**                           |
 
 ## Quickstart
@@ -82,5 +101,18 @@ frontend/         Next.js chat UI
 
 ## Documentation
 
-Each build phase ships a standalone explainer in [`docs/`](./docs). Start with
-[`docs/00-setup.md`](./docs/00-setup.md).
+Each build phase ships a standalone explainer in [`docs/`](./docs):
+
+| # | Doc | Topic |
+| - | --- | ----- |
+| 00 | [setup](./docs/00-setup.md) | uv env, Ollama, toolchain |
+| 01 | [langchain-basics](./docs/01-langchain-basics.md) | model factory, prompts, structured output |
+| 02 | [rag-pipeline](./docs/02-rag-pipeline.md) | synthetic KB → Chroma, grounded QA |
+| 03 | [langgraph-agents](./docs/03-langgraph-agents.md) | hand-built ReAct loop + memory |
+| 04 | [supervisor-routing](./docs/04-supervisor-routing.md) | classifier + specialist subgraphs |
+| 05 | [guardrails](./docs/05-guardrails.md) | PII, injection, groundedness, human-in-the-loop |
+| 06 | [langsmith-observability](./docs/06-langsmith-observability.md) | tracing, tags, feedback |
+| 07 | [evaluation](./docs/07-evaluation.md) | datasets + evaluators (local & hosted) |
+| 08 | [backend-api](./docs/08-backend-api.md) | FastAPI, SSE, pause/resume |
+| 09 | [frontend](./docs/09-frontend.md) | Next.js chat UI |
+| 10 | [deployment](./docs/10-deployment.md) | hardening + running it for real |
