@@ -40,6 +40,23 @@ def test_injection_is_refused_end_to_end_without_model():
     assert last.content == REFUSAL_MESSAGE
 
 
+def test_explicit_human_request_escalates_without_model():
+    # "connect me with a human" short-circuits classification, so this runs with no model:
+    # input_guard → supervisor (deterministic) → escalate (pauses on interrupt).
+    graph = build_support_graph(checkpointer=get_checkpointer(":memory:"))
+    config = {"configurable": {"thread_id": "t-human-request"}}
+
+    graph.invoke(
+        {"messages": [HumanMessage(content="yes, connect me with a human agent")]},
+        config=config,
+    )
+
+    snapshot = graph.get_state(config)
+    pending = [t.interrupts for t in snapshot.tasks if t.interrupts]
+    assert pending, "an explicit request for a human should pause for a human-in-the-loop"
+    assert snapshot.values["escalation_reason"] == "customer_requested_human"
+
+
 # --------------------------------------------------------------------------- #
 # Live: low-confidence routing pauses for a human and resumes (HITL)
 # --------------------------------------------------------------------------- #
@@ -59,8 +76,12 @@ def test_low_confidence_escalates_and_resumes_with_human_reply():
     graph = build_support_graph(checkpointer=get_checkpointer(":memory:"))
     config = {"configurable": {"thread_id": "t-hitl"}}
 
-    # A vague message should classify with low confidence and pause on interrupt().
-    graph.invoke({"messages": [HumanMessage(content="hello")]}, config=config)
+    # A vague but on-topic message can't be confidently routed, so it classifies in-scope
+    # with low confidence and pauses on interrupt() for a human (off-topic would decline).
+    graph.invoke(
+        {"messages": [HumanMessage(content="I need help with something but I'm not sure what")]},
+        config=config,
+    )
     snapshot = graph.get_state(config)
     pending = [t.interrupts for t in snapshot.tasks if t.interrupts]
     assert pending, "expected the graph to pause on a human-in-the-loop interrupt"

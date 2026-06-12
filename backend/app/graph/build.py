@@ -7,7 +7,8 @@ human-in-the-loop:
       → input_guard ─(blocked)→ refuse ─────────────────────────────→ END
             │(ok)
             ▼
-        supervisor ─(low confidence)──────────────→ escalate (HITL) → END
+        supervisor ─(out of scope)────────────────→ decline ────────→ END
+            │       ─(low confidence)──────────────→ escalate (HITL) → END
             │
             ▼ (chosen specialist)
         billing │ technical │ account │ sales   (ReAct subgraphs)
@@ -40,7 +41,11 @@ from backend.app.graph.nodes.output_guard import (
     route_after_output_guard,
 )
 from backend.app.graph.state import SupportState
-from backend.app.graph.supervisor import route_from_supervisor, supervisor_node
+from backend.app.graph.supervisor import (
+    decline_node,
+    route_from_supervisor,
+    supervisor_node,
+)
 
 
 def build_support_graph(
@@ -59,6 +64,7 @@ def build_support_graph(
     builder.add_node("input_guard", input_guard_node)
     builder.add_node("refuse", refuse_node)
     builder.add_node("supervisor", supervisor_node)
+    builder.add_node("decline", decline_node)
     builder.add_node("output_guard", output_guard_node)
     builder.add_node("escalate", escalation_node)
     for key, agent in specialists.items():
@@ -73,12 +79,14 @@ def build_support_graph(
     )
     builder.add_edge("refuse", END)
 
-    # Supervisor fans out to a specialist, or escalates on low confidence.
+    # Supervisor fans out to a specialist, declines out-of-scope requests, or escalates
+    # an in-scope-but-uncertain request to a human.
     builder.add_conditional_edges(
         "supervisor",
         route_from_supervisor,
-        {**{key: key for key in SPECIALISTS}, "escalate": "escalate"},
+        {**{key: key for key in SPECIALISTS}, "decline": "decline", "escalate": "escalate"},
     )
+    builder.add_edge("decline", END)
 
     # Every specialist's answer passes through the output guardrail.
     for key in SPECIALISTS:
