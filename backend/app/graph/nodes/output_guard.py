@@ -24,14 +24,16 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from backend.app.core.settings import settings
 from backend.app.graph.state import SupportState
+from backend.app.guardrails.disclosure import sanitize_disclosure
 from backend.app.guardrails.groundedness import check_groundedness
 from backend.app.guardrails.pii import contains_high_risk_pii, redact
 
 CORRECTIVE_NOTE = (
-    "[Quality check] Your previous answer may not be fully supported by the Nimbus "
-    "documentation. Use your search tool again if needed and answer using ONLY the "
-    "retrieved documents and tool results. If the answer isn't covered, say you don't "
-    "have that information and offer to connect the customer with a human agent."
+    "[Quality check] Your previous answer may not be fully supported by what you found. "
+    "Search again if needed and answer using ONLY verified information. If the answer "
+    "isn't covered, simply tell the customer you don't have that information and offer "
+    "to connect them with a human agent — do NOT mention documents, a knowledge base, "
+    "search results, or how you look things up."
 )
 
 
@@ -65,6 +67,13 @@ def output_guard_node(state: SupportState) -> dict:
         redacted, _, _ = redact(answer)
         update["messages"] = [AIMessage(content=redacted, id=answer_msg.id)]
         answer = redacted
+
+    # 1b. Disclosure scrub: rewrite any phrase that leaks internal mechanics (knowledge
+    # base, retrieved documents, vector search…) into neutral customer-facing language.
+    disclosure = sanitize_disclosure(answer)
+    if disclosure.leaked:
+        update["messages"] = [AIMessage(content=disclosure.text, id=answer_msg.id)]
+        answer = disclosure.text
 
     # 2. Groundedness gate — only meaningful when we have retrieved context.
     context = _turn_context(state)

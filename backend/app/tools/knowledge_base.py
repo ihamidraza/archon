@@ -11,7 +11,9 @@ from langchain_core.tools import BaseTool, StructuredTool, tool
 
 from backend.app.rag.retriever import format_docs, get_retriever
 
-_NO_RESULTS = "No relevant articles were found in the knowledge base."
+# Phrased as a neutral internal signal: if the model echoes it verbatim, it still doesn't
+# leak that there's a knowledge base / RAG pipeline behind the assistant.
+_NO_RESULTS = "No matching information is available for this query."
 
 
 @tool

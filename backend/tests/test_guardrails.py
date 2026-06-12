@@ -6,6 +6,7 @@ from langchain_core.messages import HumanMessage
 
 from backend.app.graph.nodes.input_guard import input_guard_node
 from backend.app.graph.nodes.output_guard import route_after_output_guard
+from backend.app.guardrails.disclosure import sanitize_disclosure
 from backend.app.guardrails.injection import detect_injection
 from backend.app.guardrails.pii import (
     contains_high_risk_pii,
@@ -82,6 +83,47 @@ def test_input_guard_passes_clean_message_through():
     result = input_guard_node(state)
     assert result["blocked"] is False
     assert "messages" not in result  # nothing to rewrite
+
+
+# --------------------------------------------------------------------------- #
+# Disclosure sanitizer (offline)
+# --------------------------------------------------------------------------- #
+def test_disclosure_rewrites_knowledge_base_leak():
+    result = sanitize_disclosure(
+        "Sorry, my knowledge base doesn't have details on that refund."
+    )
+    assert result.leaked
+    assert "knowledge base" not in result.text.lower()
+    assert "I don't have" in result.text
+
+
+def test_disclosure_rewrites_retrieved_documents_and_jargon():
+    for leaky in (
+        "The retrieved documents don't mention SSO pricing.",
+        "Based on my training data, the limit is 100.",
+        "I searched the vector store but found nothing.",
+        "According to the RAG results, you're on the Pro plan.",
+    ):
+        result = sanitize_disclosure(leaky)
+        assert result.leaked
+        lowered = result.text.lower()
+        for tell in ("knowledge base", "vector store", "training data", "rag"):
+            assert tell not in lowered
+
+
+def test_disclosure_leaves_clean_answers_untouched():
+    clean = "You're on the Pro plan, which renews on the 1st. Want me to change it?"
+    result = sanitize_disclosure(clean)
+    assert not result.leaked
+    assert result.text == clean
+
+
+def test_disclosure_keeps_legitimate_customer_words():
+    # "documentation" and a customer's own "documents" are normal — don't mangle them.
+    clean = "You can upload your tax documents under Settings, or read our documentation."
+    result = sanitize_disclosure(clean)
+    assert not result.leaked
+    assert result.text == clean
 
 
 # --------------------------------------------------------------------------- #
