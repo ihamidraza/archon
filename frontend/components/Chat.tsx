@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { chat, fetchHealth, resume, sendFeedback } from "@/lib/api";
+import { chat, fetchHealth, sendFeedback, subscribeThread } from "@/lib/api";
 import type { ChatMessage, HealthStatus, SSEEvent } from "@/lib/types";
 import { HealthDot } from "./Badges";
 import { ArrowUpIcon, HeadsetIcon, PlusIcon, SparkIcon } from "./Icons";
@@ -25,11 +25,12 @@ export default function Chat() {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [input, setInput] = useState("");
-  const [humanInput, setHumanInput] = useState("");
   const [escalationReason, setEscalationReason] = useState<string | null>(null);
   const [health, setHealth] = useState<HealthStatus | null>(null);
 
   const endRef = useRef<HTMLDivElement>(null);
+  // Live subscription to a human agent's reply after escalation (closed on resolve/new chat).
+  const subRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     fetchHealth().then(setHealth);
@@ -61,8 +62,9 @@ export default function Chat() {
         patch(replyId, {
           pending: false,
           escalated: true,
-          content: "This needs a person — a support agent will reply below.",
+          content: "This needs a person — a support agent has been notified and will reply here.",
         });
+        subscribeForAgentReply(event.thread_id);
         break;
       case "done":
         patch(replyId, {
@@ -110,24 +112,41 @@ export default function Chat() {
     }
   }
 
-  async function sendHumanReply() {
-    const trimmed = humanInput.trim();
-    if (!trimmed || !threadId) return;
+  // After escalation, listen on the thread's live stream for the human agent's reply (sent
+  // from the separate agent console) and render it as it arrives.
+  function subscribeForAgentReply(tid: string) {
+    subRef.current?.abort();
+    const controller = new AbortController();
+    subRef.current = controller;
 
-    const replyId = nextId();
-    setMessages((prev) => [
-      ...prev,
-      { id: replyId, role: "human-agent", content: "", pending: true },
-    ]);
-    setHumanInput("");
-    setEscalationReason(null);
-    setStatus("streaming");
+    let replyId: string | null = null;
+    const liveHandler = (event: SSEEvent) => {
+      switch (event.type) {
+        case "human_reply_start":
+          replyId = nextId();
+          setEscalationReason(null);
+          setMessages((prev) => [
+            ...prev,
+            { id: replyId!, role: "human-agent", content: "", pending: true },
+          ]);
+          break;
+        case "token":
+          if (replyId) appendToken(replyId, event.content);
+          break;
+        case "done":
+          if (replyId) patch(replyId, { pending: false });
+          setStatus("idle");
+          controller.abort();
+          break;
+        case "error":
+          if (replyId) patch(replyId, { pending: false, errored: true, content: event.detail });
+          setStatus("idle");
+          break;
+      }
+    };
 
-    try {
-      await resume(threadId, trimmed, handler(replyId));
-    } finally {
-      setStatus((s) => (s === "streaming" ? "idle" : s));
-    }
+    // Swallow the abort that we trigger ourselves once the reply is delivered.
+    subscribeThread(tid, liveHandler, controller.signal).catch(() => {});
   }
 
   async function onFeedback(message: ChatMessage, score: 1 | 0) {
@@ -137,11 +156,11 @@ export default function Chat() {
   }
 
   function newChat() {
+    subRef.current?.abort();
     setMessages([]);
     setThreadId(null);
     setStatus("idle");
     setEscalationReason(null);
-    setHumanInput("");
   }
 
   return (
@@ -182,12 +201,7 @@ export default function Chat() {
       </div>
 
       {status === "awaiting_human" ? (
-        <HumanPanel
-          reason={escalationReason}
-          value={humanInput}
-          onChange={setHumanInput}
-          onSend={sendHumanReply}
-        />
+        <WaitingBanner reason={escalationReason} />
       ) : (
         <Composer
           value={input}
@@ -279,47 +293,20 @@ function Composer({
   );
 }
 
-function HumanPanel({
-  reason,
-  value,
-  onChange,
-  onSend,
-}: {
-  reason: string | null;
-  value: string;
-  onChange: (v: string) => void;
-  onSend: () => void;
-}) {
+function WaitingBanner({ reason }: { reason: string | null }) {
   return (
     <div className="px-4 pb-4 pt-2 sm:px-6">
-      <div className="rounded-2xl border border-orange-200 bg-orange-50/80 p-3 dark:border-orange-500/30 dark:bg-orange-500/10">
-        <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-orange-700 dark:text-orange-300">
-          <HeadsetIcon className="h-3.5 w-3.5" />
-          Escalated to a human agent{reason ? ` · ${reason}` : ""}
-        </p>
-        <div className="flex items-end gap-2 rounded-xl border border-orange-200 bg-white p-2 focus-within:ring-4 focus-within:ring-orange-100 dark:border-orange-500/30 dark:bg-slate-800 dark:focus-within:ring-orange-500/20">
-          <textarea
-            rows={1}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                onSend();
-              }
-            }}
-            placeholder="Reply as the human agent…"
-            className="max-h-40 flex-1 resize-none bg-transparent px-2.5 py-1.5 text-[15px] text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
-          />
-          <button
-            type="button"
-            onClick={onSend}
-            disabled={!value.trim()}
-            aria-label="Send as human agent"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            <ArrowUpIcon className="h-[18px] w-[18px]" />
-          </button>
+      <div className="flex items-center gap-2.5 rounded-2xl border border-orange-200 bg-orange-50/80 p-3 dark:border-orange-500/30 dark:bg-orange-500/10">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 text-white">
+          <HeadsetIcon className="h-4 w-4" />
+        </span>
+        <div className="leading-tight">
+          <p className="text-xs font-semibold text-orange-700 dark:text-orange-300">
+            A support agent has been notified{reason ? ` · ${reason}` : ""}
+          </p>
+          <p className="text-[11px] text-orange-600/80 dark:text-orange-300/70">
+            Their reply will appear here as soon as they respond.
+          </p>
         </div>
       </div>
     </div>

@@ -130,6 +130,38 @@ def test_resume_conflicts_when_thread_not_paused(client):
     assert resp.status_code == 409
 
 
+# --------------------------------------------------------------------------- #
+# Agent console — queue + thread detail
+# --------------------------------------------------------------------------- #
+def test_agent_queue_empty_by_default(client):
+    body = client.get("/agent/queue", params={"department": "billing"}).json()
+    assert body["department"] == "billing"
+    assert body["items"] == []
+
+
+def test_agent_thread_unknown_returns_404(client):
+    assert client.get("/agent/threads/never-seen").status_code == 404
+
+
+def test_agent_queue_self_heals_stale_entries(client):
+    # A registry entry whose thread isn't actually paused must be dropped on listing, so a
+    # stale index never surfaces a phantom conversation in a console.
+    from backend.app.api.escalation_registry import registry
+
+    registry.add(
+        thread_id="stale-thread",
+        department="billing",
+        customer_message="orphaned",
+        reason="low_confidence_routing",
+    )
+    try:
+        items = client.get("/agent/queue", params={"department": "billing"}).json()["items"]
+        assert all(i["thread_id"] != "stale-thread" for i in items)
+        assert registry.get("stale-thread") is None  # verified against state and removed
+    finally:
+        registry.remove("stale-thread")
+
+
 def test_feedback_returns_recorded_flag(client):
     resp = client.post(
         "/feedback",

@@ -28,6 +28,12 @@ class SupportState(MessagesState):
     intent: NotRequired[str]
     # The supervisor's confidence in that label, 0.0–1.0.
     confidence: NotRequired[float]
+    # Whether the latest message is about Nimbus at all. False routes to a standard
+    # out-of-scope reply (``decline``) instead of escalating to a human.
+    in_scope: NotRequired[bool]
+    # Set when the customer explicitly asks for a human (or accepts our offer of one), so
+    # the request always reaches the escalate node rather than the decline path.
+    escalation_requested: NotRequired[bool]
 
     # --- Guardrails (Phase 5) ---
     # Set by the input guardrail when a message is refused (e.g. prompt injection).
