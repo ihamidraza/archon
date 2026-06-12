@@ -1,7 +1,7 @@
 // Thin client for the Archon SSE API. The browser's EventSource only does GET, and our
 // endpoints are POST, so we stream the response body manually with fetch + a reader.
 
-import type { HealthStatus, SSEEvent } from "./types";
+import type { HealthStatus, QueueResponse, SSEEvent, ThreadDetail } from "./types";
 
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") || "http://localhost:8000";
@@ -105,6 +105,29 @@ export async function sendFeedback(
   } catch {
     return false;
   }
+}
+
+/** Subscribe to a thread's live stream to receive a human agent's reply after escalation. */
+export function subscribeThread(
+  threadId: string,
+  onEvent: (event: SSEEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  return streamSSE(`/threads/${threadId}/stream`, {}, onEvent, signal);
+}
+
+/** Agent console: list escalated conversations queued for a department. */
+export async function fetchQueue(department: string): Promise<QueueResponse> {
+  const res = await fetch(`${API_BASE}/agent/queue?department=${encodeURIComponent(department)}`);
+  if (!res.ok) throw new Error(`Queue request failed (${res.status}).`);
+  return (await res.json()) as QueueResponse;
+}
+
+/** Agent console: fetch one thread's full transcript + escalation context. */
+export async function getThread(threadId: string): Promise<ThreadDetail> {
+  const res = await fetch(`${API_BASE}/agent/threads/${encodeURIComponent(threadId)}`);
+  if (!res.ok) throw new Error(`Thread request failed (${res.status}).`);
+  return (await res.json()) as ThreadDetail;
 }
 
 export async function fetchHealth(): Promise<HealthStatus | null> {
