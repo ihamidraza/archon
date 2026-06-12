@@ -8,6 +8,7 @@ the frontend (Phase 9) consumes.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -77,6 +78,53 @@ class DoneEvent(BaseModel):
 class ErrorEvent(BaseModel):
     type: Literal["error"] = "error"
     detail: str
+
+
+class HumanReplyEvent(BaseModel):
+    """Pushed to a customer's live stream just before an agent's reply tokens, so their UI
+    can open a fresh ``human-agent`` bubble."""
+
+    type: Literal["human_reply_start"] = "human_reply_start"
+    thread_id: str
+
+
+# --------------------------------------------------------------------------- #
+# Agent-console responses (plain JSON)
+# --------------------------------------------------------------------------- #
+class QueueItem(BaseModel):
+    """One escalated conversation in a department's queue."""
+
+    thread_id: str
+    department: str
+    customer_message: str
+    reason: str
+    created_at: datetime
+    status: Literal["waiting", "resolved"] = "waiting"
+
+
+class QueueResponse(BaseModel):
+    department: str | None = None
+    items: list[QueueItem]
+
+
+class TranscriptMessage(BaseModel):
+    """One message in a thread's history, flattened for display in the agent console."""
+
+    role: Literal["user", "assistant", "human-agent"]
+    content: str
+
+
+class ThreadDetailResponse(BaseModel):
+    """Full context + transcript for a single escalated thread."""
+
+    thread_id: str
+    department: str
+    intent: str | None = None
+    escalation_reason: str | None = None
+    reason: str = ""
+    customer_message: str = ""
+    pending: bool
+    messages: list[TranscriptMessage]
 
 
 # --------------------------------------------------------------------------- #
